@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Machine Learning Project</title>
+	<meta name="generator" content="BBEdit 10.5" />
+</head>
+<body>
+
+Unfortunately, I ran out of time to run process the .RMD file via RStudio.
+
+Here is my R code and results in a regular HTML file.
+
+The goal of the project was to use a machine or statistical learning method 
+to predict the manner in which a group of people were instructed to lift a 
+light dumbell correctly ("A") or incorrectly ("B", "C", "D", "E").
+
+I chose to use random forest methods to create a prediction model. 
+Fifty variables from the training data set were numeric, not missing data, 
+and not of low variance.
+
+I used the rfcv() function from the randomForest package to examine the 
+effects of the number of variables selected for each tree. The result allows 
+more informed tuning of the caret package train() function in the following 
+code, which calls for 5 repeated 5-fold cross-validations, with trees using 
+between 3 and 10 variables.
+
+My plot showed my expected accuracy across different numbers of randomly 
+selected predictors. It showed that the accuracry asympotes as expected. 
+However it was unexpected to have an accuracy just less than 99.3%!
+
+The results on the testing data set are very similar to the expected 
+results from cross validation. I expected it to be optimistic.
+
+<pre>
+rm(list=ls())
+setwd("~/Desktop/Coursera/Machine_Learning/project")
+library("caret")
+library("randomForest")
+
+pml <- read.csv("pml-training.csv")
+classe <- as.data.frame(pml[,160])
+names(classe) = c("classe")
+summary(classe)
+all(!is.na(classe$classe)) # no missing in "classe"
+# keep vars in test data as there is no point training on other vars
+varstokeep <- read.delim("variables.txt", header=FALSE, as.is=TRUE)
+names(varstokeep) <- c("varstokeep")
+pml <- pml[,as.character(varstokeep$varstokeep)]
+nearZeroVar(pml) # vars ok in terms of enough variance
+
+set.seed(1967)
+inTrain <- createDataPartition(y=classe$classe, p=0.7, list=FALSE)
+
+trainx <- pml[inTrain,]
+trainy <- classe[inTrain,]
+
+testx <- pml[-inTrain,]
+testy <- classe[-inTrain,]
+
+result = rfcv(trainx, trainy)
+with(result, plot(n.var, error.cv, log="x", type="o", lwd=2))
+# so 10 or fewer variables is useful
+
+rf_ctrl <- trainControl(method="repeatedcv", number=5, repeats=5)
+rf_grid <- expand.grid(mtry=3:10)
+rf_model <- train(trainx, trainy, method="rf", trControl=rf_ctrl, tuneGrid=rf_grid, metric="Accuracy")
+
+plot(rf_model)
+
+rf_testing <- predict(rf_model, newdata=testx)
+rf_cf <- confusionMatrix(rf_testing, testy)
+</pre>
+
+<pre>
+# Confusion Matrix and Statistics
+# 
+# Reference
+# Prediction    A    B    C    D    E
+# A 1674    6    0    0    0
+# B    0 1131    7    0    0
+# C    0    2 1019   11    0
+# D    0    0    0  952    4
+# E    0    0    0    1 1078
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9947          
+# 95% CI : (0.9925, 0.9964)
+# No Information Rate : 0.2845          
+# P-Value [Acc > NIR] : < 2.2e-16       
+# 
+# Kappa : 0.9933          
+# Mcnemar's Test P-Value : NA              
+# 
+# Statistics by Class:
+# 
+#                      Class: A Class: B Class: C Class: D Class: E
+# Sensitivity            1.0000   0.9930   0.9932   0.9876   0.9963
+# Specificity            0.9986   0.9985   0.9973   0.9992   0.9998
+# Pos Pred Value         0.9964   0.9938   0.9874   0.9958   0.9991
+# Neg Pred Value         1.0000   0.9983   0.9986   0.9976   0.9992
+# Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+# Detection Rate         0.2845   0.1922   0.1732   0.1618   0.1832
+# Detection Prevalence   0.2855   0.1934   0.1754   0.1624   0.1833
+# Balanced Accuracy      0.9993   0.9958   0.9953   0.9934   0.9980
+</pre>
+
+</body>
+</html>
